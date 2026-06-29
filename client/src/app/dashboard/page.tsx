@@ -46,7 +46,8 @@ export default function DashboardPage() {
   }, [token])
 
   useEffect(() => {
-    const source = new EventSource(`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/api/sse/payment-updates?token=${token}`)
+    if (!token) return
+    const source = new EventSource(`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '').replace(/\/api$/, '')}/api/sse/payment-updates?token=${token}`)
     eventSourceRef.current = source
     source.onmessage = (e) => {
       const data = JSON.parse(e.data)
@@ -137,7 +138,7 @@ export default function DashboardPage() {
         return 'bg-yellow-50 text-yellow-700 border border-yellow-200'
       case 'CLOSED':
       case 'WITHDRAWN':
-        return 'bg-brand-blue/5 text-brand-blue border border-brand-blue/20'
+        return 'bg-brand-blue/10 text-brand-blue border border-brand-blue/20'
       case 'REJECTED':
         return 'bg-red-50 text-red-700 border border-red-200'
       default:

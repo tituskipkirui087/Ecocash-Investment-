@@ -124,7 +124,8 @@ export default function InvestmentsPage() {
   const setupSSE = () => {
     const token = localStorage.getItem('token')
     if (!token) return
-    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '')
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
+    const baseUrl = apiUrl.replace(/\/api$/, '').replace(/\/api$/, '')
     const sseUrl = `${baseUrl}/api/sse/payment-updates?token=${token}`
     console.log('Setting up SSE connection:', sseUrl)
     const source = new EventSource(sseUrl)
@@ -453,7 +454,7 @@ export default function InvestmentsPage() {
                       form.append('receipt', file)
                       form.append('depositId', pendingPayment.depositId || '')
                       try {
-                        await fetch(`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/api/deposits/upload-receipt`, {
+                        await fetch(`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || ''}/api/deposits/upload-receipt`, {
                           method: 'POST',
                           headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
@@ -22,7 +22,20 @@ export default function Home() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [disclaimerOpen, setDisclaimerOpen] = useState(false)
+  const [videoPlaying, setVideoPlaying] = useState(true)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const { token } = useAuth()
+
+  const toggleVideo = () => {
+    if (videoRef.current) {
+      if (videoPlaying) {
+        videoRef.current.pause()
+      } else {
+        videoRef.current.play()
+      }
+      setVideoPlaying(!videoPlaying)
+    }
+  }
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -132,15 +145,31 @@ export default function Home() {
         <section className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-dark-400 py-16">
           <div className="absolute inset-0 z-0">
             <video
+              ref={videoRef}
               autoPlay
               muted
               loop
               playsInline
               className="absolute inset-0 w-full h-full object-cover opacity-30"
-              poster="/images/hero-poster.jpg"
+              poster="/images/ecocash-logo.svg"
             >
-              <source src="https://ecocash.co.zw/wp-content/uploads/2025/07/Ecocash-Cards.mp4" type="video/mp4" />
+              <source src="/uploads/Ecocash-Cards.mp4" type="video/mp4" />
             </video>
+            <button
+              onClick={toggleVideo}
+              className="absolute bottom-4 right-4 z-20 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors"
+              aria-label={videoPlaying ? 'Pause video' : 'Play video'}
+            >
+              {videoPlaying ? (
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 00-1 1v2a1 1 0 002 0V9a1 1 0 00-1-1zm6 0a1 1 0 00-1 1v2a1 1 0 002 0V9a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1.5 1.5 0 007 8.5v3a1.5 1.5 0 002.555 1.332l2.3-1.5a1.5 1.5 0 000-2.664l-2.3-1.5z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
             <div className="absolute inset-0 bg-dark-400/60" />
             <div className="light-streaks absolute inset-0 opacity-30 pointer-events-none">
               <div className="absolute top-0 left-0 w-full h-full">
