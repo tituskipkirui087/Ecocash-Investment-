@@ -47,7 +47,8 @@ router.get('/profile', authenticateToken, getProfile)
 router.put('/profile', authenticateToken, updateProfile)
 router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), uploadAvatar)
 router.post('/kyc', authenticateToken, kycUpload.fields([
-  { name: 'idDocument', maxCount: 1 },
+  { name: 'idDocumentFront', maxCount: 1 },
+  { name: 'idDocumentBack', maxCount: 1 },
   { name: 'selfie', maxCount: 1 }
 ]), submitKYC)
 
