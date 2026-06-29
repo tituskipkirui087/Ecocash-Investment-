@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+  }
+  html {
+    color-scheme: light;
+  }
+  body {
+    @apply bg-white text-gray-900;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .text-brand-blue {
+    color: #0045a0;
+  }
+  .bg-brand-blue {
+    background-color: #0045a0;
+  }
+  .border-brand-blue {
+    border-color: #0045a0;
+  }
+  .from-brand-blue {
+    --tw-gradient-from: #0045a0;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(0, 69, 160, 0));
+  }
+  .to-brand-blue {
+    --tw-gradient-to: #0045a0;
+  }
+  .via-brand-blue {
+    --tw-gradient-via: #0045a0;
+  }
+  .text-2xs {
+    font-size: 0.65rem;
+    line-height: 1rem;
+  }
+}
