@@ -16,12 +16,24 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [showKycConfirmed, setShowKycConfirmed] = useState(false)
 
   useEffect(() => {
     if (user?.avatar) {
       setAvatarPreview(user.avatar)
     }
   }, [user?.avatar])
+
+  useEffect(() => {
+    // Show KYC confirmation when user becomes verified
+    if (user?.isVerified && !showKycConfirmed) {
+      setShowKycConfirmed(true)
+      toast.success('🎉 KYC Verified! Your account is now fully activated.', {
+        duration: 5000,
+        position: 'top-center',
+      })
+    }
+  }, [user?.isVerified, showKycConfirmed])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -76,7 +88,7 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
         Profile Settings
         {user?.isVerified && (
-          <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+          <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full animate-pulse">
             <Shield className="h-3 w-3" />
             KYC Verified
           </span>
@@ -107,6 +119,12 @@ export default function ProfilePage() {
               <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${user?.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-brand-blue/10 text-brand-blue'}`}>
                 {user?.role}
               </span>
+              {user?.isVerified && (
+                <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                  <Shield className="h-3 w-3" />
+                  Verified
+                </span>
+              )}
             </div>
           </div>
         </div>

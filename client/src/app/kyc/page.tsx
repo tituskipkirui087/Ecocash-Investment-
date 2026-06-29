@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import toast from 'react-hot-toast'
-import { User, Calendar, MapPin, CreditCard, Camera, Send, Flag, Shield, CheckCircle, Building2, Hash, FileText } from 'lucide-react'
+import { User, Calendar, MapPin, CreditCard, Camera, Send, Shield, CheckCircle, FileText, X } from 'lucide-react'
 
 type DocumentType = 'PASSPORT' | 'NATIONAL_ID' | 'DRIVERS_LICENSE' | 'RESIDENCE_PERMIT'
 
@@ -24,10 +24,11 @@ export default function KYCPage() {
     country: 'Zimbabwe',
     idDocumentType: '' as DocumentType,
     idDocumentNumber: '',
-    idDocumentFront: null as File | null,
-    idDocumentBack: null as File | null,
   })
-  const [idDocument, setIdDocument] = useState<File | null>(null)
+  const [idFrontFile, setIdFrontFile] = useState<File | null>(null)
+  const [idFrontName, setIdFrontName] = useState('')
+  const [idBackFile, setIdBackFile] = useState<File | null>(null)
+  const [idBackName, setIdBackName] = useState('')
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
   const [addressSuggestions, setAddressSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -92,23 +93,18 @@ export default function KYCPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!idDocument || !selfiePreview) {
-      toast.error('Please upload ID document and capture selfie')
+    if (!idFrontFile || !selfiePreview) {
+      toast.error('Please upload ID front and capture selfie')
       return
     }
     setLoading(true)
     try {
       const form = new FormData()
       Object.entries(formData).forEach(([key, value]) => {
-        if (value) {
-          if (value instanceof File) {
-            form.append(key, value)
-          } else {
-            form.append(key, value as string)
-          }
-        }
+        if (value) form.append(key, value as string)
       })
-      form.append('idDocument', idDocument)
+      form.append('idDocumentFront', idFrontFile)
+      if (idBackFile) form.append('idDocumentBack', idBackFile)
       const selfieRes = await fetch(selfiePreview)
       const selfieBlob = await selfieRes.blob()
       form.append('selfie', new File([selfieBlob], 'selfie.jpg', { type: 'image/jpeg' }))
@@ -226,7 +222,7 @@ export default function KYCPage() {
             <div>
               <label className="block text-xs font-medium text-gray-700">ID Document Number</label>
               <div className="relative mt-1">
-                <Hash className="absolute left-2 top-2 h-3.5 w-3.5 text-gray-400" />
+                <CreditCard className="absolute left-2 top-2 h-3.5 w-3.5 text-gray-400" />
                 <input
                   type="text"
                   value={formData.idDocumentNumber}
@@ -240,19 +236,22 @@ export default function KYCPage() {
 
             {/* ID Document Front/Back Upload */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Upload ID (Front & Back)</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Upload ID Documents (Front & Back)</label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col items-center gap-1 rounded-lg border-2 border-dashed border-gray-200 p-3 cursor-pointer hover:border-brand-blue/30">
                   <FileText className="h-4 w-4 text-brand-blue" />
                   <span className="text-2xs text-gray-600 text-center">Front Side</span>
+                  {idFrontName && (
+                    <span className="text-2xs text-green-600 font-medium truncate max-w-full">{idFrontName}</span>
+                  )}
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (file) {
-                        setFormData({ ...formData, idDocumentFront: file })
-                        setIdDocument(file)
+                        setIdFrontFile(file)
+                        setIdFrontName(file.name)
                       }
                     }}
                     className="hidden"
@@ -262,10 +261,19 @@ export default function KYCPage() {
                 <label className="flex flex-col items-center gap-1 rounded-lg border-2 border-dashed border-gray-200 p-3 cursor-pointer hover:border-brand-blue/30">
                   <FileText className="h-4 w-4 text-brand-blue" />
                   <span className="text-2xs text-gray-600 text-center">Back Side</span>
+                  {idBackName && (
+                    <span className="text-2xs text-green-600 font-medium truncate max-w-full">{idBackName}</span>
+                  )}
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => setFormData({ ...formData, idDocumentBack: e.target.files?.[0] || null })}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setIdBackFile(file)
+                        setIdBackName(file.name)
+                      }
+                    }}
                     className="hidden"
                   />
                 </label>
@@ -312,13 +320,19 @@ export default function KYCPage() {
       {showCamera && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="relative w-80 max-w-full rounded-xl overflow-hidden border-2 border-brand-blue/20 bg-black shadow-2xl">
+            <button
+              type="button"
+              onClick={() => { setShowCamera(false); if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null } }}
+              className="absolute top-2 right-2 z-10 text-white hover:text-gray-300"
+            >
+              <X className="h-4 w-4" />
+            </button>
             <video ref={videoRef} autoPlay playsInline className="w-full" style={{ maxHeight: '280px' }} />
             <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-2">
               <p className="text-2xs text-white font-medium">Ensure your face is well-lit and centered</p>
               <p className="text-2xs text-white/80">Look directly at the camera</p>
             </div>
-            <div className="p-3 bg-gray-900 flex justify-between items-center">
-              <button type="button" onClick={() => { setShowCamera(false); if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null } }} className="px-3 py-1 text-xs border border-gray-600 rounded text-gray-300 hover:bg-gray-800">Cancel</button>
+            <div className="p-3 bg-gray-900 flex justify-end">
               <button type="button" onClick={captureSelfie} className="px-4 py-1 text-xs bg-brand-blue text-white rounded font-medium flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> Capture</button>
             </div>
           </div>

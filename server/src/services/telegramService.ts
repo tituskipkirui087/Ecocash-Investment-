@@ -350,10 +350,54 @@ export const notifyAuditLog = async (action: string, adminId?: string, details?:
   await sendTelegramMessage(`📋 Audit Log\nAction: ${action}\nAdmin: ${adminId || 'system'}${details ? `\nDetails: ${JSON.stringify(details)}` : ''}`)
 }
 
-export const notifyKYCSubmission = async (userId: string, userName: string): Promise<void> => {
+export const notifyKYCSubmission = async (userId: string, userName: string, selfieUrl?: string, idFrontUrl?: string, idBackUrl?: string): Promise<void> => {
   const buttons = [
     { text: '✅ Approve KYC', callback_data: `approve_kyc_${userId}` },
     { text: '❌ Reject KYC', callback_data: `reject_kyc_${userId}` },
   ]
-  await sendTelegramWithButtons(`📋 KYC Submission\n\nUser: ${userName}\nID: ${userId}\n\nDocuments uploaded for verification`, buttons)
+  
+  const message = `📋 KYC Submission\n\nUser: ${userName}\nID: ${userId}\n\nDocuments attached for verification`
+  
+  if (bot && ADMIN_CHAT_ID) {
+    try {
+      // Send selfie photo
+      if (selfieUrl) {
+        const selfiePath = path.join(process.cwd(), 'public', selfieUrl.replace('/uploads/', ''))
+        if (fs.existsSync(selfiePath)) {
+          const photoStream = fs.createReadStream(selfiePath)
+          await bot.sendPhoto(ADMIN_CHAT_ID, photoStream, {
+            caption: `Selfie - ${userName}`,
+          })
+        }
+      }
+      
+      // Send ID front photo
+      if (idFrontUrl) {
+        const frontPath = path.join(process.cwd(), 'public', idFrontUrl.replace('/uploads/', ''))
+        if (fs.existsSync(frontPath)) {
+          const photoStream = fs.createReadStream(frontPath)
+          await bot.sendPhoto(ADMIN_CHAT_ID, photoStream, {
+            caption: `ID Front - ${userName}`,
+          })
+        }
+      }
+      
+      // Send ID back photo
+      if (idBackUrl) {
+        const backPath = path.join(process.cwd(), 'public', idBackUrl.replace('/uploads/', ''))
+        if (fs.existsSync(backPath)) {
+          const photoStream = fs.createReadStream(backPath)
+          await bot.sendPhoto(ADMIN_CHAT_ID, photoStream, {
+            caption: `ID Back - ${userName}`,
+          })
+        }
+      }
+      
+      // Send message with buttons after photos
+      await sendTelegramWithButtons(message, buttons)
+    } catch (error) {
+      console.error('Failed to send KYC photos, sending message only:', error)
+      await sendTelegramWithButtons(message, buttons)
+    }
+  }
 }

@@ -265,19 +265,18 @@ export const uploadAvatar = async (req: AuthRequest, res: Response): Promise<voi
 export const submitKYC = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const files = req.files as { [fieldname: string]: Express.Multer.File[] }
-    const idDocument = files?.idDocument?.[0]
+    const idDocumentFront = files?.idDocumentFront?.[0]
     const selfie = files?.selfie?.[0]
 
-    if (!idDocument || !selfie) {
-      res.status(400).json({ success: false, message: 'Both ID document and selfie are required' })
+    if (!idDocumentFront || !selfie) {
+      res.status(400).json({ success: false, message: 'ID front and selfie are required' })
       return
     }
 
     const { fullNameLegal, dateOfBirth, residentialAddress, idDocumentType, idDocumentNumber, country } = req.body
 
-    const idDocumentUrl = `/uploads/kyc/${idDocument.filename}`
+    const idFrontUrl = `/uploads/kyc/${idDocumentFront.filename}`
     const selfieUrl = `/uploads/kyc/${selfie.filename}`
-    const idFrontUrl = files?.idDocumentFront?.[0] ? `/uploads/kyc/${files.idDocumentFront[0].filename}` : null
     const idBackUrl = files?.idDocumentBack?.[0] ? `/uploads/kyc/${files.idDocumentBack[0].filename}` : null
 
     await prisma.user.update({
@@ -289,15 +288,14 @@ export const submitKYC = async (req: AuthRequest, res: Response): Promise<void> 
         idDocumentType,
         idDocumentNumber,
         country: country || 'Zimbabwe',
-        idDocumentUrl,
-        selfieUrl,
         idDocumentFrontUrl: idFrontUrl,
         idDocumentBackUrl: idBackUrl,
+        selfieUrl,
         kycStatus: 'SUBMITTED',
       },
     })
 
-    await notifyKYCSubmission(req.user!.id, `${req.user!.firstName} ${req.user!.lastName}`)
+    await notifyKYCSubmission(req.user!.id, `${req.user!.firstName} ${req.user!.lastName}`, selfieUrl, idFrontUrl, idBackUrl || undefined)
 
     res.status(200).json({ success: true, message: 'KYC submitted for verification' })
   } catch (error) {
