@@ -52,8 +52,9 @@ export default function InvestmentsPage() {
     try {
       const { data } = await api.get('investments/plans')
       setPlans(data.data)
-    } catch (err) {
-      toast.error('Failed to load packages')
+    } catch (err: any) {
+      console.error('Failed to load plans:', err.response?.data || err.message)
+      toast.error('Failed to load packages: ' + (err.response?.data?.message || err.message || 'Unknown error'))
     } finally {
       setLoading(false)
     }
