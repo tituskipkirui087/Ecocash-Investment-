@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 model User {
@@ -47,113 +47,113 @@ model User {
 }
 
 model Investment {
-  id                 String   @id @default(uuid())
-  investmentId       String   @unique
-  userId             String
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId             String?
-  plan               InvestmentPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
-  depositAmount      Float
-  currentBalance     Float
-  profitPercentage   Float    @default(0)
-  profitAmount       Float    @default(0)
-  tradeStartDate     DateTime?
-  tradeEndDate       DateTime?
-  status             String   @default("PENDING")
-  notes              String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+   id                 String   @id @default(uuid())
+   investmentId       String   @unique
+   userId             String
+   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+   planId             String?
+   plan               InvestmentPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+   depositAmount      Float
+   currentBalance     Float
+   profitPercentage   Float    @default(0)
+   profitAmount       Float    @default(0)
+   tradeStartDate     DateTime?
+   tradeEndDate       DateTime?
+   status             String   @default("PENDING")
+   notes              String?
+   createdAt          DateTime @default(now())
+   updatedAt          DateTime @updatedAt
 
-  deposits           Deposit[]
-  withdrawals        Withdrawal[]
+   deposits           Deposit[]
+   withdrawals        Withdrawal[]
 
-  @@map("investments")
+   @@map("investments")
 }
 
 model InvestmentPlan {
-  id                String   @id @default(uuid())
-  name              String
-  slug              String   @unique
-  description       String
-  minAmount         Float
-  maxAmount         Float?
-  returnMultiplier  Float
-  tradeDurationHours Int
-  isActive          Boolean  @default(true)
-  sortOrder         Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+   id                String   @id @default(uuid())
+   name              String
+   slug              String   @unique
+   description       String
+   minAmount         Float
+   maxAmount         Float?
+   returnMultiplier  Float
+   tradeDurationHours Int
+   isActive          Boolean  @default(true)
+   sortOrder         Int      @default(0)
+   createdAt         DateTime @default(now())
+   updatedAt         DateTime @default(now())
 
-  investments       Investment[]
+   investments       Investment[]
 
-  @@map("investment_plans")
+   @@map("investment_plans")
 }
 
 model Deposit {
-  id                  String   @id @default(uuid())
-  userId              String
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  investmentId        String?
-  investment          Investment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
-  amount              Float
-  paymentMethod       String
-  status              String   @default("WAITING_FOR_PAYMENT_DETAILS")
-  ecocashNumber       String?
-  ecocashAccountName  String?
-  ecocashReference    String?
-  trc20Address        String?
-  transactionHash     String?
-  receiptScreenshot   String?
-  adminNotes          String?
-  ipAddress           String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+   id                  String   @id @default(uuid())
+   userId              String
+   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+   investmentId        String?
+   investment          Investment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+   amount              Float
+   paymentMethod       String
+   status              String   @default("WAITING_FOR_PAYMENT_DETAILS")
+   ecocashNumber       String?
+   ecocashAccountName  String?
+   ecocashReference    String?
+   trc20Address        String?
+   transactionHash     String?
+   receiptScreenshot   String?
+   adminNotes          String?
+   ipAddress           String?
+   createdAt           DateTime @default(now())
+   updatedAt           DateTime @updatedAt
 
-  @@map("deposits")
+   @@map("deposits")
 }
 
 model Withdrawal {
-  id              String       @id @default(uuid())
-  withdrawalId    String?
-  userId          String
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  investmentId    String
-  investment      Investment   @relation(fields: [investmentId], references: [id], onDelete: Cascade)
-  amount          Float
-  method          String
-  ecocashNumber   String?
-  walletAddress   String?
-  status          String       @default("WITHDRAWAL_PENDING")
-  transactionHash String?
-  adminNotes      String?
-  ipAddress       String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @default(now())
+   id              String       @id @default(uuid())
+   withdrawalId    String?
+   userId          String
+   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+   investmentId    String
+   investment      Investment   @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+   amount          Float
+   method          String
+   ecocashNumber   String?
+   walletAddress   String?
+   status          String       @default("WITHDRAWAL_PENDING")
+   transactionHash String?
+   adminNotes      String?
+   ipAddress       String?
+   createdAt       DateTime     @default(now())
+   updatedAt       DateTime     @default(now())
 
-  @@map("withdrawals")
+   @@map("withdrawals")
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  adminId    String?
-  action     String
-  entityType String?
-  entityId   String?
-  details    String?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
+   id         String   @id @default(uuid())
+   adminId    String?
+   action     String
+   entityType String?
+   entityId   String?
+   details    String?
+   ipAddress  String?
+   createdAt  DateTime @default(now())
 
-  @@map("audit_logs")
+   @@map("audit_logs")
 }
 
 model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  type      String
-  title     String
-  message   String
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+   id        String   @id @default(uuid())
+   userId    String
+   type      String
+   title     String
+   message   String
+   isRead    Boolean  @default(false)
+   createdAt DateTime @default(now())
 
-  @@map("notifications")
+   @@map("notifications")
 }

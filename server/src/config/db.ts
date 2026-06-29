@@ -1,8 +1,7 @@
 import { PrismaClient } from '@prisma/client'
-import dotenv from 'dotenv'
 
-dotenv.config()
+const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL
 
 export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: ['error'],
 })

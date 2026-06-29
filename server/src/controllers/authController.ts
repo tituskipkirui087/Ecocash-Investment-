@@ -1,7 +1,7 @@
 import { Response } from 'express'
 import { AuthRequest, authenticateToken } from '../middleware/auth'
 import { prisma } from '../config/db'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { notifyNewUser, notifyKYCSubmission } from '../services/telegramService'
 import { z } from 'zod'
@@ -54,7 +54,13 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
       },
     })
 
-    await notifyNewUser(email, user.id)
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_ADMIN_CHAT_ID) {
+      try {
+        await notifyNewUser(email, user.id)
+      } catch (notifyError) {
+        console.error('Telegram notification error:', notifyError)
+      }
+    }
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
@@ -67,13 +73,13 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
       message: 'Registration successful! Please complete KYC to access your account.',
       data: { user, token },
     })
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ success: false, message: 'Validation error', errors: error.errors })
       return
     }
-    console.error('Register error:', error)
-    res.status(500).json({ success: false, message: 'Server error' })
+    console.error('Register error:', error.message || error)
+    res.status(500).json({ success: false, message: 'Server error', error: error.message || 'Unknown error' })
   }
 }
 
