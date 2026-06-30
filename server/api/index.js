@@ -5,13 +5,13 @@ import { z } from 'zod';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
 
-// Try multiple key sources - secret key should be used for server-side
+// Use secret key if available (required for server-side write operations)
 const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
                    process.env.SUPABASE_SERVICE_ROLE_KEY || 
                    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-const supabase = supabaseKey && supabaseKey.startsWith('sb_secret') ? createClient(supabaseUrl, supabaseKey) : null;
+const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default async function handler(req, res) {
   const { method, url } = req;
