@@ -25,7 +25,8 @@ app.post('/api/auth/register', async (req, res) => {
         const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.status(201).json({ success: true, message: 'Registration successful!', data: { user, token } });
     } catch (e) {
-        res.status(e instanceof z.ZodError ? 400 : 500).json({ success: false, message: 'Error', errors: e.errors });
+        const err = e;
+        res.status(err instanceof z.ZodError ? 400 : 500).json({ success: false, message: 'Error', errors: err.errors });
     }
 });
 
@@ -39,17 +40,17 @@ app.post('/api/auth/login', async (req, res) => {
         const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
         const { password: _, ...u } = user;
         res.json({ success: true, message: 'Login successful', data: { user: u, token } });
-    } catch (e) { res.status(400).json({ success: false, message: 'Validation error' }); }
+    } catch (err) { res.status(400).json({ success: false, message: 'Validation error' }); }
 });
 
 app.get('/api/investments/plans', async (_req, res) => {
     try { res.json({ success: true, data: await prisma.investmentPlan.findMany() }); }
-    catch (e) { res.status(500).json({ success: false, message: 'Server error' }); }
+    catch (err) { res.status(500).json({ success: false, message: 'Server error' }); }
 });
 
 app.get('/api/deposits', async (_req, res) => {
     try { res.json({ success: true, data: await prisma.deposit.findMany({ orderBy: { createdAt: 'desc' } }) }); }
-    catch (e) { res.status(500).json({ success: false, message: 'Server error' }); }
+    catch (err) { res.status(500).json({ success: false, message: 'Server error' }); }
 });
 
 app.post('/api/deposits/submit', async (req, res) => {
@@ -57,7 +58,7 @@ app.post('/api/deposits/submit', async (req, res) => {
         const { amount } = req.body;
         const deposit = await prisma.deposit.create({ data: { amount: parseFloat(amount), status: 'PAYMENT_SUBMITTED' } });
         res.json({ success: true, data: deposit });
-    } catch (e) { res.status(500).json({ success: false, message: 'Server error' }); }
+    } catch (err) { res.status(500).json({ success: false, message: 'Server error' }); }
 });
 
 app.use((_req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
