@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
+const apiUrl = `${supabaseUrl}/rest/v1`;
 
 let supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 let keyType = 'SECRET';
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
     if (path === '/api/investments/plans') {
       try {
         const queryParams = new URLSearchParams({ select: '*' }).toString();
-        const response = await fetch(`${supabaseUrl}/rest/v1/investment_plans?${queryParams}`, {
+        const response = await fetch(`${apiUrl}/investment_plans?${queryParams}`, {
           method: 'GET',
           headers: {
             'apikey': supabaseKey,
