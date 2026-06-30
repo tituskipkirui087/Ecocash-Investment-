@@ -3,11 +3,23 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
-const PRISMA_DATABASE_URL = process.env.DATABASE_URL || 
-  `postgresql://postgres:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST?.replace('db.', '')?.replace(':5432', '')}6543/postgres?pgbouncer=true`;
+// Build pooler URL from POSTGRES_* environment variables
+const buildConnectionUrl = () => {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  
+  // Use POSTGRES variables provided by Vercel Supabase integration
+  // POSTGRES_HOST: db.xgotkgxnsupvdzsorlij.supabase.co
+  // POSTGRES_PASSWORD: password
+  // POSTGRES_DATABASE: postgres
+  const host = process.env.POSTGRES_HOST?.replace(':5432', '') || '';
+  const password = process.env.POSTGRES_PASSWORD || '';
+  const database = process.env.POSTGRES_DATABASE || 'postgres';
+  
+  return `postgresql://postgres:${password}@${host}/${database}`;
+};
 
 const prisma = new PrismaClient({
-  datasources: { db: { url: PRISMA_DATABASE_URL } }
+  datasources: { db: { url: buildConnectionUrl() } }
 });
 
 export default async function handler(req, res) {
