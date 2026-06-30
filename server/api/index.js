@@ -29,7 +29,15 @@ export default async function handler(req, res) {
   if (method === 'OPTIONS') return res.status(200).end();
 
   if (path === '/api/health') {
-    return res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    return res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      debug: {
+        hasSecretKey: !!process.env.SUPABASE_SECRET_KEY,
+        hasPublishableKey: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+        keyType: supabaseKey ? (supabaseKey.includes('sb_secret') ? 'SECRET' : 'PUBLIC') : 'NONE'
+      }
+    });
   }
 
   if (!supabase) {
