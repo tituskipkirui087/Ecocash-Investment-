@@ -3,7 +3,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
-const prisma = new PrismaClient();
+const PRISMA_DATABASE_URL = process.env.DATABASE_URL || 
+  `postgresql://postgres:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST?.replace('db.', '')?.replace(':5432', '')}6543/postgres?pgbouncer=true`;
+
+const prisma = new PrismaClient({
+  datasources: { db: { url: PRISMA_DATABASE_URL } }
+});
 
 export default async function handler(req, res) {
   const { method, url } = req;
@@ -50,7 +55,6 @@ export default async function handler(req, res) {
         select: { id: true, email: true, firstName: true, lastName: true, isVerified: true, role: true, createdAt: true }
       });
       const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-      await prisma.$disconnect();
       return res.status(201).json({ success: true, message: 'Registration successful!', data: { user, token } });
     }
 
@@ -64,13 +68,11 @@ export default async function handler(req, res) {
       if (!user.isActive) return res.status(403).json({ success: false, message: 'Account pending approval' });
       const { password, ...u } = user;
       const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-      await prisma.$disconnect();
       return res.json({ success: true, message: 'Login successful', data: { user: u, token } });
     }
 
     if (path === '/api/deposits/submit' && method === 'POST') {
       const deposit = await prisma.deposit.create({ data: { amount: parseFloat(body.amount), status: 'PAYMENT_SUBMITTED' } });
-      await prisma.$disconnect();
       return res.json({ success: true, data: deposit });
     }
 
