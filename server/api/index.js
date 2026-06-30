@@ -13,8 +13,8 @@ const supabaseKey = process.env.SUPABASE_SECRET_KEY ||
 
 console.log('Supabase config:', {
   url: supabaseUrl,
-  keyType: supabaseKey ? (supabaseKey.includes('secret') ? 'SECRET' : 'PUBLIC') : 'NONE',
-  keyPrefix: supabaseKey ? supabaseKey.substring(0, 15) : 'NOT_SET'
+  keyType: supabaseKey ? (supabaseKey.includes('sb_secret') ? 'SECRET' : 'PUBLIC') : 'NONE',
+  keyPrefix: supabaseKey ? supabaseKey.substring(0, 20) : 'NOT_SET'
 });
 
 const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
