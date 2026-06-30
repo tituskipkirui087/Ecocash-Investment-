@@ -3,22 +3,19 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
-// Build connection URL - prefer DATABASE_URL, fallback to POSTGRES_*
-const buildConnectionUrl = () => {
-  // Direct connection string (preferred)
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  
-  // Fallback to POSTGRES_* variables from Vercel integration
-  const host = process.env.POSTGRES_HOST?.replace(':5432', '') || '';
-  const password = process.env.POSTGRES_PASSWORD || '';
-  const database = process.env.POSTGRES_DATABASE || 'postgres';
-  
-  return `postgresql://postgres:${password}@${host}/${database}`;
-};
+// Lazy Prisma client initialization to pick up env vars at runtime
+let prisma = null;
 
-const prisma = new PrismaClient({
-  datasources: { db: { url: buildConnectionUrl() } }
-});
+const getPrisma = () => {
+  if (!prisma) {
+    const url = process.env.DATABASE_URL || 
+      `postgresql://postgres:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST?.replace(':5432', '')}/${process.env.POSTGRES_DATABASE || 'postgres'}`;
+    prisma = new PrismaClient({
+      datasources: { db: { url } }
+    });
+  }
+  return prisma;
+};
 
 export default async function handler(req, res) {
   const { method, url } = req;
@@ -41,26 +38,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    await prisma.$connect();
+    await getPrisma().$connect();
 
     if (path === '/api/investments/plans') {
-      const plans = await prisma.investmentPlan.findMany();
-      await prisma.$disconnect();
+      const plans = await getPrisma().investmentPlan.findMany();
+      await getPrisma().$disconnect();
       return res.json({ success: true, data: plans });
     }
 
     if (path === '/api/deposits' && method === 'GET') {
-      const deposits = await prisma.deposit.findMany({ orderBy: { createdAt: 'desc' } });
-      await prisma.$disconnect();
+      const deposits = await getPrisma().deposit.findMany({ orderBy: { createdAt: 'desc' } });
+      await getPrisma().$disconnect();
       return res.json({ success: true, data: deposits });
     }
 
     if (path === '/api/auth/register' && method === 'POST') {
       const schema = z.object({ email: z.string().email(), password: z.string().min(6), firstName: z.string().min(1), lastName: z.string().min(1) });
       const parsed = schema.parse(body);
-      const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
+      const existing = await getPrisma().user.findUnique({ where: { email: parsed.email } });
       if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
-      const user = await prisma.user.create({
+      const user = await getPrisma().user.create({
         data: { ...parsed, password: await bcrypt.hash(parsed.password, 10), isVerified: false, isActive: false },
         select: { id: true, email: true, firstName: true, lastName: true, isVerified: true, role: true, createdAt: true }
       });
@@ -71,7 +68,7 @@ export default async function handler(req, res) {
     if (path === '/api/auth/login' && method === 'POST') {
       const schema = z.object({ email: z.string().email(), password: z.string().min(1) });
       const parsed = schema.parse(body);
-      const user = await prisma.user.findUnique({ where: { email: parsed.email } });
+      const user = await getPrisma().user.findUnique({ where: { email: parsed.email } });
       if (!user || !(await bcrypt.compare(parsed.password, user.password))) {
         return res.status(401).json({ success: false, message: 'Invalid credentials' });
       }
@@ -82,7 +79,7 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/deposits/submit' && method === 'POST') {
-      const deposit = await prisma.deposit.create({ data: { amount: parseFloat(body.amount), status: 'PAYMENT_SUBMITTED' } });
+      const deposit = await getPrisma().deposit.create({ data: { amount: parseFloat(body.amount), status: 'PAYMENT_SUBMITTED' } });
       return res.json({ success: true, data: deposit });
     }
 
@@ -95,6 +92,6 @@ export default async function handler(req, res) {
     }
     return res.status(500).json({ success: false, message: err.message || 'Server error' });
   } finally {
-    try { await prisma.$disconnect(); } catch {}
+    try { await getPrisma().$disconnect(); } catch {}
   }
 }
