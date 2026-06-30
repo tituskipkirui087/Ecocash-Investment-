@@ -5,10 +5,13 @@ import { z } from 'zod';
 
 // Supabase client for REST API access
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
 
-// Create supabase client with anon key (for basic operations)
-const supabase = supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+// Use the secret key for full server-side access, fallback to publishable key
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
+                   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
+                   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default async function handler(req, res) {
   const { method, url } = req;
