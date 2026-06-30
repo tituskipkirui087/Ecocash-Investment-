@@ -3,14 +3,15 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
-// Use the secret key from Vercel Postgres integration or Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
+
+// Try multiple key sources - secret key should be used for server-side
 const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
                    process.env.SUPABASE_SERVICE_ROLE_KEY || 
                    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+const supabase = supabaseKey && supabaseKey.startsWith('sb_secret') ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default async function handler(req, res) {
   const { method, url } = req;
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
   }
 
   if (!supabase) {
-    return res.status(500).json({ success: false, message: 'Supabase client not configured. Check SUPABASE_SECRET_KEY environment variable.' });
+    return res.status(500).json({ success: false, message: 'Supabase client not configured. Check SUPABASE_SECRET_KEY environment variable (must start with sb_secret).' });
   }
 
   try {
