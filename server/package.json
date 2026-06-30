@@ -7,9 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
-    "vercel-build": "prisma generate",
+    "vercel-build": "prisma generate && tsc",
     "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio"
