@@ -11,7 +11,11 @@ const supabaseKey = process.env.SUPABASE_SECRET_KEY ||
                    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+// Create supabase client with the secret key
+let supabase = null;
+if (supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+}
 
 export default async function handler(req, res) {
   const { method, url } = req;
@@ -28,13 +32,17 @@ export default async function handler(req, res) {
     return res.json({ status: 'ok', timestamp: new Date().toISOString() });
   }
 
+  // Check if supabase client is configured
+  if (!supabase) {
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Supabase client not configured. Required env vars: SUPABASE_SECRET_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY' 
+    });
+  }
+
   let body = {};
   if (req.body) {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  }
-
-  if (!supabase) {
-    return res.status(500).json({ success: false, message: 'Supabase client not configured. Check SUPABASE_SECRET_KEY environment variable (must start with sb_secret).' });
   }
 
   try {
