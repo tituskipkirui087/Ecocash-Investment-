@@ -6,7 +6,7 @@ import { z } from 'zod';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
 
 // Try secret key first
-let supabaseKey = process.env.SUPABASE_SECRET_KEY || '';
+let supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 let keyType = 'SECRET';
 
 // Fallback to publishable key if no secret
