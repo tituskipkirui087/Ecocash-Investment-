@@ -11,6 +11,12 @@ const supabaseKey = process.env.SUPABASE_SECRET_KEY ||
                    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+console.log('Supabase config:', {
+  url: supabaseUrl,
+  keyType: supabaseKey ? (supabaseKey.includes('secret') ? 'SECRET' : 'PUBLIC') : 'NONE',
+  keyPrefix: supabaseKey ? supabaseKey.substring(0, 15) : 'NOT_SET'
+});
+
 const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default async function handler(req, res) {
