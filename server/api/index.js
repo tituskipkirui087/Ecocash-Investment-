@@ -3,10 +3,14 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+// Use the secret key from Vercel Postgres integration or Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
+                   process.env.SUPABASE_SERVICE_ROLE_KEY || 
+                   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
+                   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default async function handler(req, res) {
   const { method, url } = req;
@@ -28,6 +32,10 @@ export default async function handler(req, res) {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   }
 
+  if (!supabase) {
+    return res.status(500).json({ success: false, message: 'Supabase client not configured. Check SUPABASE_SECRET_KEY environment variable.' });
+  }
+
   try {
     if (path === '/api/investments/plans') {
       const { data: plans, error } = await supabase.from('investment_plans').select('*');
@@ -44,7 +52,8 @@ export default async function handler(req, res) {
     if (path === '/api/auth/register' && method === 'POST') {
       const schema = z.object({ email: z.string().email(), password: z.string().min(6), firstName: z.string().min(1), lastName: z.string().min(1) });
       const parsed = schema.parse(body);
-      const { data: existing, error: checkError } = await supabase.from('users').select('id').eq('email', parsed.email).single();
+      
+      const { data: existing } = await supabase.from('users').select('id').eq('email', parsed.email).single();
       if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
       
       const { data: user, error: createError } = await supabase
