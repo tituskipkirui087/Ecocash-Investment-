@@ -5,13 +5,13 @@ import { z } from 'zod';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
 
-// Priority: SUPABASE_SECRET_KEY > SUPABASE_SERVICE_ROLE_KEY > NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-// The secret key (sb_secret_...) is required for server-side database write operations
+// Priority: Secret key (for server-side) > Publishable key (for client-side)
+// The secret key starts with 'sb_secret' and provides full database access
 const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
-                   process.env.SUPABASE_SERVICE_ROLE_KEY || 
-                   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+                   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+                   process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-console.log('Supabase key available:', !!supabaseKey, supabaseKey ? `starts with ${supabaseKey.substring(0, 10)}` : 'NO KEY');
+console.log('Supabase key type:', supabaseKey ? (supabaseKey.startsWith('sb_secret') ? 'SECRET' : 'PUBLISHABLE') : 'NONE');
 
 const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
