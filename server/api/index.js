@@ -15,6 +15,13 @@ if (!supabaseKey) {
   keyType = 'PUBLIC';
 }
 
+console.log('Supabase init:', {
+  hasSecretKey: !!process.env.SUPABASE_SECRET_KEY,
+  hasPublishableKey: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  url: supabaseUrl,
+  keyPrefix: supabaseKey ? supabaseKey.substring(0, 15) : 'NOT_SET'
+});
+
 const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default async function handler(req, res) {
