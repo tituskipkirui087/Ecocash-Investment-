@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -7,6 +6,12 @@ import { createClient } from '@supabase/supabase-js';
 // Use Supabase REST API with publishable key (simpler for serverless)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+console.log('Supabase config:', { 
+  supabaseUrl, 
+  hasKey: !!supabaseKey, 
+  keyStart: supabaseKey ? supabaseKey.substring(0, 10) : 'NONE' 
+});
 
 const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
