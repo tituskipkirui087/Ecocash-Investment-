@@ -27,7 +27,15 @@ export default async function handler(req, res) {
   if (method === 'OPTIONS') return res.status(200).end();
 
   if (path === '/api/health') {
-    return res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    return res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      build: 'supabase-js-v2',
+      hasEnvVars: {
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      }
+    });
   }
 
   if (!supabase) {
