@@ -4,13 +4,10 @@ import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
-// Try to find any available key
 const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
                    process.env.SUPABASE_SERVICE_ROLE_KEY || 
                    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-console.log('Key found:', supabaseKey ? 'yes' : 'no', supabaseKey ? supabaseKey.substring(0, 15) : '');
 
 const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
@@ -29,9 +26,7 @@ export default async function handler(req, res) {
   if (path === '/api/health') {
     return res.json({ 
       status: 'ok', 
-      timestamp: new Date().toISOString(), 
-      version: 'supabase-rest-api-v1-build-' + Date.now(),
-      hasSupabaseKey: !!supabaseKey
+      timestamp: new Date().toISOString()
     });
   }
 
@@ -40,13 +35,10 @@ export default async function handler(req, res) {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   }
 
-try {
+  try {
     if (path === '/api/investments/plans') {
       const { data, error } = await supabase.from('investment_plans').select('*');
       if (error) throw error;
-      // Return all plans since table might be empty
-      return res.json({ success: true, data: data || [] });
-    }
       return res.json({ success: true, data });
     }
 
