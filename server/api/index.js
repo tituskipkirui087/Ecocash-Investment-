@@ -25,6 +25,13 @@ export default async function handler(req, res) {
     return res.json({ status: 'ok', timestamp: new Date().toISOString() });
   }
 
+  if (!supabase) {
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Supabase client not configured. Set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.' 
+    });
+  }
+
   let body = {};
   if (req.body) {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -32,6 +39,7 @@ export default async function handler(req, res) {
 
   try {
     if (path === '/api/investments/plans') {
+      if (!supabase) throw new Error('Supabase not configured');
       const { data: plans, error } = await supabase.from('investment_plans').select('*').eq('is_active', true).order('sort_order');
       if (error) throw error;
       return res.json({ success: true, data: plans });
