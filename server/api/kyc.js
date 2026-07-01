@@ -1,8 +1,5 @@
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
-import Busboy from 'busboy';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
 const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
@@ -47,20 +44,25 @@ export const config = {
   },
 }
 
-function getRawBody(req) {
+function getRawBody(readable) {
   return new Promise((resolve, reject) => {
     const chunks = []
-    req.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
-    req.on('end', () => resolve(Buffer.concat(chunks)))
-    req.on('error', reject)
+    readable.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
+    readable.on('end', () => resolve(Buffer.concat(chunks)))
+    readable.on('error', reject)
   })
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Method not allowed' })
-  }
+  // Handle CORS
+  res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  
+  if (req.method === 'OPTIONS') return res.status(200).end()
+  if (req.method !== 'POST') return res.status(405).json({ success: false, message: 'Method not allowed' })
 
+  // Get token
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, message: 'Authorization required' })
@@ -73,9 +75,13 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: 'Invalid token' })
   }
 
-const rawBody = await getRawBody(req)
-
+  // Get raw body as buffer
+  const rawBody = await getRawBody(req)
+  
+  // Parse multipart form data using Busboy
+  const Busboy = require('busboy')
   const busboy = Busboy({ headers: req.headers })
+  
   const fields = {}
   const fileUploads = {}
 
@@ -109,7 +115,12 @@ const rawBody = await getRawBody(req)
   const selfie = fileUploads['selfie']
   
   if (!idDocumentFront || !selfie) {
-    return res.status(400).json({ success: false, message: 'ID front and selfie are required', receivedFields: Object.keys(fields), files: Object.keys(fileUploads) })
+    return res.status(400).json({ 
+      success: false, 
+      message: 'ID front and selfie are required', 
+      receivedFields: { fullNameLegal, dateOfBirth, residentialAddress, country, idDocumentType, idDocumentNumber },
+      filesReceived: Object.keys(fileUploads) 
+    })
   }
 
   let idFrontUrl = null
@@ -117,6 +128,7 @@ const rawBody = await getRawBody(req)
   let idBackUrl = null
   
   try {
+    // Upload files to Supabase Storage
     const { data: frontData, error: frontErr } = await supabase.storage
       .from('kyc')
       .upload(`front-${Date.now()}-${decoded.id}`, idDocumentFront.data, { contentType: idDocumentFront.mimeType })
@@ -152,6 +164,7 @@ const rawBody = await getRawBody(req)
     console.error('File upload error:', uploadErr)
   }
 
+  // Update user KYC data
   const { data: kyc, error } = await supabase
     .from('users')
     .update({
@@ -175,6 +188,7 @@ const rawBody = await getRawBody(req)
     return res.status(500).json({ success: false, message: 'Failed to update KYC' })
   }
   
+  // Send Telegram notification
   const bot = await initTelegramBot()
   const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID || ''
   const buttons = [
