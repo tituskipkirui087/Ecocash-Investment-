@@ -76,9 +76,13 @@ export default async function handler(req, res) {
 
     // Get raw body for multipart parsing
     const chunks = []
-    for await (const chunk of req) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-    }
+    await new Promise((resolve, reject) => {
+      req.on('data', (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+      })
+      req.on('end', resolve)
+      req.on('error', reject)
+    })
     const rawBody = Buffer.concat(chunks)
 
     // Parse with Busboy
