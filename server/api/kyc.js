@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
 import Busboy from 'busboy';
-import rawBody from 'raw-body';
+import { buffer } from 'raw-body';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
 const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: 'Invalid token' })
   }
 
-  const rawBodyBuffer = await rawBody(req)
+  const rawBodyBuffer = await buffer(req)
   const fields = {}
   const files = {}
 
