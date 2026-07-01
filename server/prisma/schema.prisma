@@ -53,10 +53,10 @@ model Investment {
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   planId             String?
   plan               InvestmentPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
-  depositAmount      Decimal @db.Decimal(10, 2)
-  currentBalance     Decimal @db.Decimal(10, 2)
-  profitPercentage   Decimal @db.Decimal(5, 2) @default(0)
-  profitAmount       Decimal @db.Decimal(10, 2) @default(0)
+  depositAmount      Float
+  currentBalance     Float
+  profitPercentage   Float    @default(0)
+  profitAmount       Float    @default(0)
   tradeStartDate     DateTime?
   tradeEndDate       DateTime?
   status             String   @default("PENDING")
@@ -75,9 +75,9 @@ model InvestmentPlan {
   name              String
   slug              String   @unique
   description       String
-  minAmount         Decimal @db.Decimal(10, 2)
-  maxAmount         Decimal? @db.Decimal(10, 2)
-  returnMultiplier  Decimal @db.Decimal(5, 2)
+  minAmount         Float
+  maxAmount         Float?
+  returnMultiplier  Float
   tradeDurationHours Int
   isActive          Boolean  @default(true)
   sortOrder         Int      @default(0)
@@ -95,7 +95,7 @@ model Deposit {
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   investmentId        String?
   investment          Investment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
-  amount              Decimal @db.Decimal(10, 2)
+  amount              Float
   paymentMethod       String
   status              String   @default("WAITING_FOR_PAYMENT_DETAILS")
   ecocashNumber       String?
@@ -119,7 +119,7 @@ model Withdrawal {
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   investmentId    String
   investment      Investment   @relation(fields: [investmentId], references: [id], onDelete: Cascade)
-  amount          Decimal @db.Decimal(10, 2)
+  amount          Float
   method          String
   ecocashNumber   String?
   walletAddress   String?
