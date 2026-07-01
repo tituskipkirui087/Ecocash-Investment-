@@ -12,9 +12,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const kycUploadDir = process.env.VERCEL ? '/tmp/uploads/kyc' : path.join(__dirname, '../../public/uploads/kyc')
 const avatarUploadDir = process.env.VERCEL ? '/tmp/uploads/avatars' : path.join(__dirname, '../../public/uploads/avatars')
 
-if (!process.env.VERCEL) {
+try {
   fs.mkdirSync(kycUploadDir, { recursive: true })
   fs.mkdirSync(avatarUploadDir, { recursive: true })
+} catch (err) {
+  console.error('Failed to create upload directories:', err)
 }
 
 const router = Router()

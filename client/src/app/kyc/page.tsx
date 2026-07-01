@@ -29,6 +29,7 @@ export default function KYCPage() {
   const [idFrontName, setIdFrontName] = useState('')
   const [idBackFile, setIdBackFile] = useState<File | null>(null)
   const [idBackName, setIdBackName] = useState('')
+  const [selfieFile, setSelfieFile] = useState<File | null>(null)
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
   const [addressSuggestions, setAddressSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -79,6 +80,7 @@ export default function KYCPage() {
       canvas.toBlob(blob => {
         if (blob) {
           const file = new File([blob], 'selfie.jpg', { type: 'image/jpeg' })
+          setSelfieFile(file)
           setSelfiePreview(URL.createObjectURL(file))
           if (streamRef.current) {
             streamRef.current.getTracks().forEach(t => t.stop())
@@ -91,24 +93,20 @@ export default function KYCPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!idFrontFile || !selfiePreview) {
-      toast.error('Please upload ID front and capture selfie')
-      return
-    }
     setLoading(true)
     try {
       const form = new FormData()
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value) form.append(key, value as string)
-      })
-      form.append('idDocumentFront', idFrontFile)
+      form.append('fullNameLegal', formData.fullNameLegal)
+      form.append('dateOfBirth', formData.dateOfBirth)
+      form.append('residentialAddress', formData.residentialAddress)
+      form.append('country', formData.country)
+      form.append('idDocumentType', formData.idDocumentType)
+      form.append('idDocumentNumber', formData.idDocumentNumber)
+      if (idFrontFile) form.append('idDocumentFront', idFrontFile)
       if (idBackFile) form.append('idDocumentBack', idBackFile)
-      const selfieRes = await fetch(selfiePreview)
-      const selfieBlob = await selfieRes.blob()
-      form.append('selfie', new File([selfieBlob], 'selfie.jpg', { type: 'image/jpeg' }))
-
+      if (selfieFile) form.append('selfie', selfieFile)
       await api.post('auth/kyc', form)
       toast.success('KYC submitted for verification! Admin will review shortly.')
       router.push('/dashboard')

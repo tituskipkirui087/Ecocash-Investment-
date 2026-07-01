@@ -40,13 +40,24 @@ export const getTelegramBot = (): TelegramBot | null => {
 }
 
 export const sendTelegramMessage = async (text: string, options?: TelegramBot.SendMessageOptions): Promise<void> => {
-  if (!BOT_TOKEN || !ADMIN_CHAT_ID || !bot) {
+  if (!BOT_TOKEN || !ADMIN_CHAT_ID) {
     console.log('Telegram not configured - message would be:', text.substring(0, 100))
     return
   }
 
+  let botInstance = bot
+  if (!botInstance) {
+    try {
+      botInstance = new TelegramBot(BOT_TOKEN, { polling: false })
+      bot = botInstance
+    } catch (error) {
+      console.error('Telegram bot init error:', error)
+      return
+    }
+  }
+
   try {
-    await bot.sendMessage(ADMIN_CHAT_ID, text, options)
+    await botInstance!.sendMessage(ADMIN_CHAT_ID, text, options)
   } catch (error) {
     console.error('Telegram send error:', error)
   }
@@ -61,24 +72,34 @@ export const sendTelegramWithButtons = async (text: string, buttons: { text: str
 }
 
 export const notifyNewUser = async (email: string, userId: string): Promise<void> => {
-  if (process.env.VERCEL) {
-    console.log('Skipping new user notification on Vercel (polling disabled)')
-    return
-  }
-  
   const buttons = [
     { text: '✅ Approve', callback_data: `approve_user_${userId}` },
     { text: '❌ Reject', callback_data: `reject_user_${userId}` },
   ]
-  await sendTelegramWithButtons(`🆕 New User Registration\n\nEmail: ${email}\nUser ID: ${userId}`, buttons)
+  
+  try {
+    let botInstance = bot
+    if (!botInstance && BOT_TOKEN) {
+      try {
+        botInstance = new TelegramBot(BOT_TOKEN, { polling: false })
+        bot = botInstance
+      } catch (error) {
+        console.error('Telegram bot init error:', error)
+        return
+      }
+    }
+  
+    if (botInstance && ADMIN_CHAT_ID) {
+      await sendTelegramWithButtons(`🆕 New User Registration\n\nEmail: ${email}\nUser ID: ${userId}`, buttons)
+    } else {
+      console.log('Telegram not configured - new user notification would be:', { email, userId })
+    }
+  } catch (error) {
+    console.error('Failed to send new user notification:', error)
+  }
 }
 
 export const notifyNewInvestment = async (investmentId: string, userName: string, amount: number, userId: string, invUuid: string): Promise<void> => {
-  if (process.env.VERCEL) {
-    console.log('Skipping investment notification on Vercel (polling disabled)')
-    return
-  }
-  
   const buttons = [
     { text: 'Send EcoCash Details', callback_data: `send_ecocash_${invUuid}` },
     { text: 'Start Trade', callback_data: `start_trade_${invUuid}` },
@@ -89,24 +110,30 @@ export const notifyNewInvestment = async (investmentId: string, userName: string
 }
 
 export const notifyDepositSubmitted = async (depositId: string, userName: string, amount: number, method: string, receiptPath?: string, txHash?: string): Promise<void> => {
-  if (process.env.VERCEL) {
-    console.log('Skipping deposit notification on Vercel (polling disabled)')
-    return
-  }
-  
   const buttons = [
     { text: '✅ Approve', callback_data: `approve_deposit_${depositId}` },
     { text: '❌ Reject', callback_data: `reject_deposit_${depositId}` },
   ]
 
-  if (receiptPath && bot) {
-    const __dirname = path.dirname(fileURLToPath(import.meta.url))
-    const uploadsPath = process.env.VERCEL ? '/tmp/uploads' : path.join(__dirname, '../../public/uploads')
-    
+  let botInstance = bot
+  if (!botInstance && BOT_TOKEN) {
     try {
-      if (fs.existsSync(path.join(uploadsPath, receiptPath.replace('/uploads/', '')))) {
-        const photoStream = fs.createReadStream(path.join(uploadsPath, receiptPath.replace('/uploads/', '')))
-        await bot.sendPhoto(ADMIN_CHAT_ID, photoStream, {
+      botInstance = new TelegramBot(BOT_TOKEN, { polling: false })
+      bot = botInstance
+    } catch (error) {
+      console.error('Telegram bot init error:', error)
+      return
+    }
+  }
+
+  if (receiptPath && botInstance) {
+    const uploadsPath = process.env.VERCEL ? '/tmp/uploads' : path.join(process.cwd(), '..', '..', 'public', 'uploads')
+
+    try {
+      const receiptFullPath = path.join(uploadsPath, receiptPath.replace('/uploads/', ''))
+      if (fs.existsSync(receiptFullPath)) {
+        const photoStream = fs.createReadStream(receiptFullPath)
+        await botInstance.sendPhoto(ADMIN_CHAT_ID, photoStream, {
           caption: `📥 Payment Submitted\n\nUser: ${userName}\nAmount: $${amount}\nMethod: ${method}${txHash ? `\nTxHash: ${txHash}` : ''}`,
           reply_markup: {
             inline_keyboard: buttons.map((btn) => [{ text: btn.text, callback_data: btn.callback_data }]),
@@ -125,82 +152,121 @@ export const notifyDepositSubmitted = async (depositId: string, userName: string
 }
 
 export const notifyWithdrawalRequest = async (withdrawalId: string, userName: string, amount: number, method: string): Promise<void> => {
-  if (process.env.VERCEL) {
-    console.log('Skipping withdrawal notification on Vercel (polling disabled)')
-    return
-  }
-  
   const buttons = [
     { text: 'Paid', callback_data: `paid_withdrawal_${withdrawalId}` },
     { text: 'Reject', callback_data: `reject_withdrawal_${withdrawalId}` },
   ]
-  await sendTelegramWithButtons(`💸 Withdrawal Request\n\nUser: ${userName}\nAmount: $${amount}\nMethod: ${method}`, buttons)
+
+  try {
+    let botInstance = bot
+    if (!botInstance && BOT_TOKEN) {
+      try {
+        botInstance = new TelegramBot(BOT_TOKEN, { polling: false })
+        bot = botInstance
+      } catch (error) {
+        console.error('Telegram bot init error:', error)
+        return
+      }
+    }
+
+    if (botInstance && ADMIN_CHAT_ID) {
+      await sendTelegramWithButtons(`💸 Withdrawal Request\n\nUser: ${userName}\nAmount: $${amount}\nMethod: ${method}`, buttons)
+    } else {
+      console.log('Telegram not configured - withdrawal notification would be:', { withdrawalId, userName, amount })
+    }
+  } catch (error) {
+    console.error('Failed to send withdrawal notification:', error)
+  }
 }
 
 export const notifyTradeClosed = async (investmentId: string, userName: string): Promise<void> => {
-  if (process.env.VERCEL) return
-  await sendTelegramMessage(`🔒 Trade Closed\n\nInvestment: ${investmentId}\nUser: ${userName}`)
+  try {
+    await sendTelegramMessage(`🔒 Trade Closed\n\nInvestment: ${investmentId}\nUser: ${userName}`)
+  } catch (error) {
+    console.error('Failed to send trade closed notification:', error)
+  }
 }
 
 export const notifyAuditLog = async (action: string, adminId?: string, details?: any): Promise<void> => {
-  if (process.env.VERCEL) return
-  await sendTelegramMessage(`📋 Audit Log\nAction: ${action}\nAdmin: ${adminId || 'system'}${details ? `\nDetails: ${JSON.stringify(details)}` : ''}`)
+  try {
+    await sendTelegramMessage(`📋 Audit Log\nAction: ${action}\nAdmin: ${adminId || 'system'}${details ? `\nDetails: ${JSON.stringify(details)}` : ''}`)
+  } catch (error) {
+    console.error('Failed to send audit log notification:', error)
+  }
 }
 
 export const notifyKYCSubmission = async (userId: string, userName: string, selfieUrl?: string, idFrontUrl?: string, idBackUrl?: string): Promise<void> => {
-  if (process.env.VERCEL) {
-    console.log('Skipping KYC notification on Vercel (polling disabled)')
-    return
-  }
-  
   const buttons = [
     { text: '✅ Approve KYC', callback_data: `approve_kyc_${userId}` },
     { text: '❌ Reject KYC', callback_data: `reject_kyc_${userId}` },
   ]
 
-  if (bot && ADMIN_CHAT_ID) {
-    try {
-      const __dirname = path.dirname(fileURLToPath(import.meta.url))
-      const uploadsPath = process.env.VERCEL ? '/tmp/uploads' : path.join(__dirname, '../../public/uploads')
+  try {
+    let botInstance = bot
+    if (!botInstance && BOT_TOKEN) {
+      try {
+        botInstance = new TelegramBot(BOT_TOKEN, { polling: false })
+        bot = botInstance
+      } catch (error) {
+        console.error('Telegram bot init error:', error)
+        return
+      }
+    }
+
+    if (botInstance && ADMIN_CHAT_ID) {
+      const uploadsPath = process.env.VERCEL ? '/tmp/uploads/kyc' : path.join(process.cwd(), '..', '..', 'public', 'uploads', 'kyc')
 
       // Send selfie photo
       if (selfieUrl) {
-        const selfiePath = path.join(uploadsPath, selfieUrl.replace('/uploads/', ''))
-        if (fs.existsSync(selfiePath)) {
-          const photoStream = fs.createReadStream(selfiePath)
-          await bot.sendPhoto(ADMIN_CHAT_ID, photoStream, {
-            caption: `Selfie - ${userName}`,
-          })
+        try {
+          const selfiePath = path.join(uploadsPath, selfieUrl.replace('/uploads/kyc/', ''))
+          if (fs.existsSync(selfiePath)) {
+            const photoStream = fs.createReadStream(selfiePath)
+            await botInstance.sendPhoto(ADMIN_CHAT_ID, photoStream, {
+              caption: `Selfie - ${userName}`,
+            })
+          }
+        } catch (e) {
+          console.error('Selfie send error:', e)
         }
       }
 
       // Send ID front photo
       if (idFrontUrl) {
-        const frontPath = path.join(uploadsPath, idFrontUrl.replace('/uploads/', ''))
-        if (fs.existsSync(frontPath)) {
-          const photoStream = fs.createReadStream(frontPath)
-          await bot.sendPhoto(ADMIN_CHAT_ID, photoStream, {
-            caption: `ID Front - ${userName}`,
-          })
+        try {
+          const frontPath = path.join(uploadsPath, idFrontUrl.replace('/uploads/kyc/', ''))
+          if (fs.existsSync(frontPath)) {
+            const photoStream = fs.createReadStream(frontPath)
+            await botInstance.sendPhoto(ADMIN_CHAT_ID, photoStream, {
+              caption: `ID Front - ${userName}`,
+            })
+          }
+        } catch (e) {
+          console.error('ID front send error:', e)
         }
       }
 
       // Send ID back photo
       if (idBackUrl) {
-        const backPath = path.join(uploadsPath, idBackUrl.replace('/uploads/', ''))
-        if (fs.existsSync(backPath)) {
-          const photoStream = fs.createReadStream(backPath)
-          await bot.sendPhoto(ADMIN_CHAT_ID, photoStream, {
-            caption: `ID Back - ${userName}`,
-          })
+        try {
+          const backPath = path.join(uploadsPath, idBackUrl.replace('/uploads/kyc/', ''))
+          if (fs.existsSync(backPath)) {
+            const photoStream = fs.createReadStream(backPath)
+            await botInstance.sendPhoto(ADMIN_CHAT_ID, photoStream, {
+              caption: `ID Back - ${userName}`,
+            })
+          }
+        } catch (e) {
+          console.error('ID back send error:', e)
         }
       }
 
       // Send message with buttons after photos
       await sendTelegramWithButtons(`📋 KYC Submission\n\nUser: ${userName}\nID: ${userId}\n\nDocuments attached for verification`, buttons)
-    } catch (error) {
-      console.error('Failed to send KYC photos, sending message only:', error)
-      await sendTelegramWithButtons(`📋 KYC Submission\n\nUser: ${userName}\nID: ${userId}\n\nDocuments attached for verification`, buttons)
+    } else {
+      console.log('Telegram not configured - KYC notification would be:', { userId, userName })
     }
+  } catch (error) {
+    console.error('Failed to send KYC notification:', error)
   }
 }

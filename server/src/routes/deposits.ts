@@ -19,7 +19,8 @@ const botAuthMiddleware = (req: any, res: any, next: any): void => {
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, path.join(process.cwd(), '..', 'public', 'uploads'))
+    const uploadPath = process.env.VERCEL ? '/tmp/uploads' : path.join(process.cwd(), '..', 'public', 'uploads')
+    cb(null, uploadPath)
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
