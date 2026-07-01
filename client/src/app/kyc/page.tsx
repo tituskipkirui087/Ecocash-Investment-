@@ -107,7 +107,24 @@ const handleSubmit = async (e: React.FormEvent) => {
       if (idFrontFile) form.append('idDocumentFront', idFrontFile)
       if (idBackFile) form.append('idDocumentBack', idBackFile)
       if (selfieFile) form.append('selfie', selfieFile)
-      await api.post('auth/kyc', form)
+      
+      // Get token for authorization
+      const token = localStorage.getItem('token')
+      
+      // Use fetch directly to avoid axios JSON content-type interference
+      const response = await fetch('https://ecocash-investment-server.vercel.app/api/auth/kyc', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: form,
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw { response: { data: error } }
+      }
+      
       toast.success('KYC submitted for verification! Admin will review shortly.')
       router.push('/dashboard')
     } catch (err: any) {
