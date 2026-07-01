@@ -19,6 +19,7 @@ const supabaseKey = process.env.SUPABASE_SECRET_KEY ||
                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+console.log('Supabase client initialized:', !!supabase)
 
 export const config = {
   api: {
@@ -30,9 +31,11 @@ export default async function handler(req, res) {
   // Add very early logging
   console.log('KYC handler invoked:', { method: req.method, url: req.url })
   
-  res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*')
+  // Immediate response headers
+  res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
   res.setHeader('Access-Control-Max-Age', '86400')
   
   if (req.method === 'OPTIONS') return res.status(200).end()
