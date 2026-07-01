@@ -34,10 +34,11 @@ export default async function handler(req, res) {
     return res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),
-      build: 'supabase-js-v2',
+      version: '2.0.1', // Force cache bust
       hasEnvVars: {
         NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+        SUPABASE_SECRET_KEY: !!process.env.SUPABASE_SECRET_KEY
       }
     });
   }
