@@ -25,13 +25,6 @@ export default async function handler(req, res) {
     return res.json({ status: 'ok', timestamp: new Date().toISOString() });
   }
 
-  if (!supabase) {
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Supabase client not configured' 
-    });
-  }
-
   let body = {};
   if (req.body) {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
