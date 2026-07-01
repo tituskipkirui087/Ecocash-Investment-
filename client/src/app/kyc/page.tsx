@@ -111,8 +111,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       // Get token for authorization
       const token = localStorage.getItem('token')
       
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ecocash-investment-server.vercel.app/api'
       // Use fetch directly to avoid axios JSON content-type interference
-      const response = await fetch('https://ecocash-investment-server.vercel.app/api/auth/kyc', {
+      const response = await fetch(`${API_URL}/auth/kyc`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -121,14 +122,22 @@ const handleSubmit = async (e: React.FormEvent) => {
       })
       
       if (!response.ok) {
-        const error = await response.json()
-        throw { response: { data: error } }
+        let errorMessage = 'KYC submission failed'
+        try {
+          const error = await response.json()
+          console.error('KYC error response:', error)
+          errorMessage = error.message || 'KYC submission failed'
+        } catch (parseErr) {
+          console.error('Error parsing error response:', parseErr)
+        }
+        throw new Error(errorMessage)
       }
       
       toast.success('KYC submitted for verification! Admin will review shortly.')
       router.push('/dashboard')
     } catch (err: any) {
-      console.error('KYC submit error:', err.response?.data || err.message)
+      console.error('KYC submit error:', err)
+      if (err.message) console.error('Error message:', err.message)
       toast.error(err.response?.data?.message || err.message || 'Failed to submit KYC')
     } finally {
       setLoading(false)
