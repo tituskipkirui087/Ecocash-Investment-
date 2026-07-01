@@ -4,21 +4,9 @@
     {
       "src": "api/index.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "api/kyc.js",
-      "use": "@vercel/node",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
     }
   ],
   "routes": [
-    {
-      "src": "/api/auth/kyc",
-      "methods": ["POST", "OPTIONS"],
-      "dest": "/api/kyc.js"
-    },
     {
       "src": "/api/(.*)",
       "dest": "/api/index.js"
