@@ -4,14 +4,15 @@ import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
-// Use the secret key first as it bypasses RLS
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
-                   process.env.SUPABASE_SERVICE_ROLE_KEY || 
-                   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
-                   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+if (!supabaseKey) {
+  console.warn('WARNING: No Supabase key found in environment!');
+}
 
 export default async function handler(req, res) {
-  const { method, url } = req;
+  const { method } = req;
+  const url = req.url || req.path || '';
   const path = url.split('?')[0];
 
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -22,40 +23,37 @@ export default async function handler(req, res) {
   if (method === 'OPTIONS') return res.status(200).end();
 
   if (path === '/api/health') {
-    // Check which environment variables are available
     return res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(), 
-      version: 'supabase-rest-v2',
-      env: {
-        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        hasSecretKey: !!process.env.SUPABASE_SECRET_KEY,
-        hasPublishableKey: !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      }
+      version: 'supabase-rest-v3',
+      hasKey: !!supabaseKey,
+      keyPrefix: supabaseKey ? supabaseKey.substring(0, 12) : 'none'
     });
   }
 
-  if (!supabaseKey) {
-    return res.status(500).json({ success: false, message: 'No Supabase key configured' });
+  const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+  let body = {};
+  if (req.body) {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  let body = req.body ? (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : {};
 
   try {
     if (path === '/api/investments/plans') {
+      if (!supabase) throw new Error('Supabase client not initialized');
       const { data, error } = await supabase.from('investment_plans').select('*').eq('is_active', true);
       if (error) {
-        console.log('Query error:', error);
-        return res.status(500).json({ success: false, message: error.message, code: error.code });
+        console.log('Supabase error:', error);
+        throw error;
       }
       return res.json({ success: true, data });
     }
 
     if (path === '/api/deposits' && method === 'GET') {
+      if (!supabase) throw new Error('Supabase client not initialized');
       const { data, error } = await supabase.from('deposits').select('*').order('created_at', { ascending: false });
-      if (error) return res.status(500).json({ success: false, message: error.message });
+      if (error) throw error;
       return res.json({ success: true, data });
     }
 
@@ -81,7 +79,7 @@ export default async function handler(req, res) {
         .select('id, email, first_name, last_name, is_verified, role, created_at')
         .single();
       
-      if (createError) return res.status(500).json({ success: false, message: createError.message });
+      if (createError) throw createError;
       
       const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'default-secret', { expiresIn: '7d' });
       return res.status(201).json({ success: true, message: 'Registration successful!', data: { user, token } });
@@ -111,7 +109,7 @@ export default async function handler(req, res) {
         .insert({ amount: parseFloat(body.amount), status: 'PAYMENT_SUBMITTED', payment_method: 'ecocash' })
         .select()
         .single();
-      if (error) return res.status(500).json({ success: false, message: error.message });
+      if (error) throw error;
       return res.json({ success: true, data });
     }
 
