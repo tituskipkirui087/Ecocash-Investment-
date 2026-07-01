@@ -138,7 +138,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     } catch (err: any) {
       console.error('KYC submit error:', err)
       if (err.message) console.error('Error message:', err.message)
-      toast.error(err.response?.data?.message || err.message || 'Failed to submit KYC')
+      if (err.stack) console.error('Stack:', err.stack)
+      toast.error(err.message || err.response?.data?.message || 'Failed to submit KYC')
     } finally {
       setLoading(false)
     }
