@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
+import Busboy from 'busboy';
+import rawBody from 'raw-body';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
 const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
@@ -8,51 +10,6 @@ const supabaseKey = process.env.SUPABASE_SECRET_KEY ||
                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const supabase = supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-
-function getRawBody(readable) {
-  return new Promise((resolve, reject) => {
-    const chunks = []
-    readable.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
-    readable.on('end', () => resolve(Buffer.concat(chunks)))
-    readable.on('error', reject)
-  })
-}
-
-function parseMultipart(body, boundary) {
-  const fields = {}
-  const files = {}
-  const bodyStr = body.toString('utf8')
-  const parts = bodyStr.split(`--${boundary}`)
-  
-  for (const part of parts) {
-    if (!part.includes('Content-Disposition') || part === '--\r\n' || part === '--') continue
-    
-    const headerEnd = part.indexOf('\r\n\r\n')
-    if (headerEnd === -1) continue
-    
-    const headers = part.slice(0, headerEnd)
-    const content = part.slice(headerEnd + 4, part.length - 2)
-    
-    const nameMatch = headers.match(/name="([^"]+)"/)
-    const filenameMatch = headers.match(/filename="([^"]+)"/)
-    const mimeMatch = headers.match(/Content-Type:\s*([^\r\n]+)/)
-    
-    if (nameMatch) {
-      const name = nameMatch[1]
-      if (filenameMatch) {
-        files[name] = {
-          filename: filenameMatch[1],
-          mimeType: mimeMatch ? mimeMatch[1] : 'application/octet-stream',
-          data: Buffer.from(content)
-        }
-      } else {
-        fields[name] = content.trim()
-      }
-    }
-  }
-  
-  return { fields, files }
-}
 
 export const config = {
   api: {
@@ -80,14 +37,34 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: 'Invalid token' })
   }
 
-  const rawBody = await getRawBody(req)
-  const contentType = req.headers['content-type'] || ''
-  const boundaryMatch = contentType.match(/boundary=(.+)/)
-  if (!boundaryMatch) {
-    return res.status(400).json({ success: false, message: 'Missing boundary in content-type' })
-  }
-  
-  const { fields, files } = parseMultipart(rawBody, boundaryMatch[1].trim())
+  const rawBodyBuffer = await rawBody(req)
+  const fields = {}
+  const files = {}
+
+  await new Promise((resolve, reject) => {
+    const busboy = Busboy({ headers: req.headers })
+    
+    busboy.on('field', (fieldname, val) => {
+      fields[fieldname] = val
+    })
+
+    busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+      const fileChunks = []
+      file.on('data', (data) => fileChunks.push(data))
+      file.on('end', () => {
+        files[fieldname] = {
+          filename,
+          mimeType: mimetype,
+          data: Buffer.concat(fileChunks)
+        }
+      })
+    })
+
+    busboy.on('finish', resolve)
+    busboy.on('error', reject)
+    busboy.end(rawBodyBuffer)
+  })
+
   const { fullNameLegal, dateOfBirth, residentialAddress, country, idDocumentType, idDocumentNumber } = fields
   const idDocumentFront = files['idDocumentFront']
   const selfie = files['selfie']
