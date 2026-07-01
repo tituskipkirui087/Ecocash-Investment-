@@ -5,7 +5,11 @@ import { createClient } from '@supabase/supabase-js';
 
 // Use Supabase REST API with publishable key (simpler for serverless)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xgotkgxnsupvdzsorlij.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Try service role key first (bypasses RLS), then publishable key
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || 
+                   process.env.SUPABASE_SERVICE_ROLE_KEY || 
+                   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
+                   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 console.log('Supabase config:', { 
   supabaseUrl, 
