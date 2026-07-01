@@ -21,7 +21,12 @@ export default async function handler(req, res) {
   if (method === 'OPTIONS') return res.status(200).end();
 
   if (path === '/api/health') {
-    return res.json({ status: 'ok', timestamp: new Date().toISOString(), version: 'supabase-v1' });
+    return res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(), 
+      version: 'supabase-rest-api-v1-build-' + Date.now(),
+      hasSupabaseKey: !!supabaseKey
+    });
   }
 
   let body = {};
