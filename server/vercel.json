@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/plans.js",
+      "src": "api/index.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/plans.js"
+      "dest": "/api/index.js"
     }
   ]
 }
