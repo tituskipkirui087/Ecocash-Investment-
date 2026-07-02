@@ -407,7 +407,7 @@ export default function InvestmentsPage() {
             )}
           </div>
           
-          <p className="text-sm text-gray-600">Your investment request has been submitted. The admin will send EcoCash payment details shortly.</p>
+          <p className="text-sm text-gray-600">Your investment request has been submitted. Payment details will be sent shortly.</p>
           
           {pendingPayment.ecocashNumber && (
             <div className="rounded-xl bg-green-50 p-4 mt-4 space-y-2">
@@ -467,7 +467,7 @@ export default function InvestmentsPage() {
           
           {!pendingPayment.ecocashNumber && (
             <div className="rounded-xl bg-yellow-50 p-4 mt-4">
-              <p className="text-sm text-yellow-800">Waiting for admin to provide EcoCash details...</p>
+              <p className="text-sm text-yellow-800">Waiting for payment details...</p>
             </div>
           )}
         </div>
