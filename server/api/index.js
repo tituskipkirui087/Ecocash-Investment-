@@ -49,6 +49,13 @@ const sendTelegramPhoto = async (bot, imageUrl, caption, options = {}) => {
   }
 }
 
+const sendTelegramWithButtons = async (text, buttons) => {
+  const { default: TelegramBot } = await import('node-telegram-bot-api')
+  const bot = new TelegramBot(BOT_TOKEN)
+  const markup = { inline_keyboard: buttons.map(b => [{ text: b.text, callback_data: b.callback_data }]) }
+  await bot.sendMessage(ADMIN_CHAT_ID, text, { reply_markup: markup })
+}
+
 export default async function handler(req, res) {
   const { method } = req;
   const url = req.url || '';
@@ -85,9 +92,7 @@ export default async function handler(req, res) {
   // Handle KYC endpoint with multipart/form-data
   if (path === '/api/auth/kyc' && method === 'POST') {
     const decoded = getUserId(req)
-    if (!decoded) {
-      return res.status(401).json({ success: false, message: 'Authorization required' })
-    }
+    if (!decoded) return res.status(401).json({ success: false, message: 'Authorization required' })
 
     const chunks = []
     await new Promise((resolve, reject) => {
@@ -471,6 +476,42 @@ export default async function handler(req, res) {
       return res.json({ success: true, message: 'Deposit approved', data: deposit })
     }
 
+    // Register endpoint
+    if (path === '/api/auth/register' && method === 'POST') {
+      const schema = z.object({ email: z.string().email(), password: z.string().min(6), firstName: z.string().min(1), lastName: z.string().min(1) })
+      const parsed = schema.parse(body)
+      const { data: existing } = await supabase.from('users').select('id').eq('email', parsed.email).single()
+      if (existing) return res.status(400).json({ success: false, message: 'Email already registered' })
+      const { data: user, error: createError } = await supabase
+        .from('users')
+        .insert({ email: parsed.email, password: await bcrypt.hash(parsed.password, 10), first_name: parsed.firstName, last_name: parsed.lastName, is_verified: false, is_active: false, role: 'INVESTOR' })
+        .select('id, email, first_name, last_name, is_verified, role, created_at')
+        .single()
+      if (createError) throw createError
+      if (BOT_TOKEN && ADMIN_CHAT_ID) {
+        try {
+          const bot = await initTelegramBot()
+          const buttons = [{ text: '✅ Approve', callback_data: `approve_user_${user.id}` }, { text: '❌ Reject', callback_data: `reject_user_${user.id}` }]
+          await sendTelegramMessage(bot, `🆕 New Registration\n\nEmail: ${parsed.email}\nName: ${parsed.firstName} ${parsed.lastName}`, { reply_markup: { inline_keyboard: buttons.map(b => [{ text: b.text, callback_data: b.callback_data }]) } })
+        } catch (e) { console.error('Telegram error:', e) }
+      }
+      const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' })
+      return res.status(201).json({ success: true, message: 'Registration successful!', data: { user, token } })
+    }
+
+    // Login endpoint
+    if (path === '/api/auth/login' && method === 'POST') {
+      const schema = z.object({ email: z.string().email(), password: z.string().min(1) })
+      const parsed = schema.parse(body)
+      const { data: user, error } = await supabase.from('users').select('*').eq('email', parsed.email).single()
+      if (error || !user) return res.status(401).json({ success: false, message: 'Invalid credentials' })
+      if (!(await bcrypt.compare(parsed.password, user.password))) return res.status(401).json({ success: false, message: 'Invalid credentials' })
+      if (!user.is_active) return res.status(403).json({ success: false, message: 'Account pending approval' })
+      const { password, ...u } = user
+      const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' })
+      return res.json({ success: true, message: 'Login successful', data: { user: u, token } })
+    }
+
     // Telegram webhook endpoint - no auth required
     if (path === '/api/telegram/webhook' && method === 'POST') {
       const body = req.body || {}
@@ -596,7 +637,7 @@ export default async function handler(req, res) {
       return res.sendStatus(200)
     }
 
-    return res.status(404).json({ success: false, message: 'Route not found' });
+    return res.status(404).json({ success: false, message: 'Route not found' })
   } catch (err) {
     const e = err;
     if (e instanceof z.ZodError) return res.status(400).json({ success: false, message: 'Validation error', errors: e.errors });
