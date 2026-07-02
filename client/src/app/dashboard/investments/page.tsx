@@ -83,19 +83,10 @@ export default function InvestmentsPage() {
     e.preventDefault()
     toastShownRef.current = { details: false, approved: false }
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/investments`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          amount: Number(formData.amount),
-        }),
+      const { data } = await api.post('investments', {
+        ...formData,
+        amount: Number(formData.amount),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message || 'Failed')
       const { investment, depositId } = data.data
       
       setPendingPayment({
@@ -111,7 +102,7 @@ export default function InvestmentsPage() {
       setView('pending')
       fetchInvestments()
     } catch (err: any) {
-      toast.error(err.message || 'Failed')
+      toast.error(err.response?.data?.message || err.message || 'Failed')
     }
   }
 
@@ -120,7 +111,7 @@ export default function InvestmentsPage() {
     if (!token) return
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
     const baseUrl = apiUrl.replace(/\/api$/, '').replace(/\/api$/, '')
-    const sseUrl = `${baseUrl}/api/sse/payment-updates?token=${token}`
+    const sseUrl = `${baseUrl}/sse/payment-updates?token=${token}`
     console.log('Setting up SSE connection:', sseUrl)
     const source = new EventSource(sseUrl)
     source.onopen = () => console.log('SSE connected')
@@ -447,20 +438,13 @@ export default function InvestmentsPage() {
                       const form = new FormData()
                       form.append('receipt', file)
                       try {
-                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/deposits/${pendingPayment.depositId}/upload-receipt`, {
-                          method: 'POST',
-                          headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                          },
-                          body: form,
-                        })
-                        if (!res.ok) throw new Error('Upload failed')
+                        await api.post(`deposits/${pendingPayment.depositId}/upload-receipt`, form)
                         toast.success('Payment proof submitted!')
                         setView('packages')
                         fetchInvestments()
-                      } catch (err) {
+                      } catch (err: any) {
                         console.error('Upload error:', err)
-                        toast.error('Failed to upload proof')
+                        toast.error(err.response?.data?.message || 'Failed to upload proof')
                       }
                     }
                   }}

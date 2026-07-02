@@ -41,10 +41,10 @@ const sendTelegramMessage = async (bot, text, options = {}) => {
   }
 }
 
-const sendTelegramPhoto = async (bot, imageUrl, caption) => {
+const sendTelegramPhoto = async (bot, imageUrl, caption, options = {}) => {
   if (!bot || !ADMIN_CHAT_ID) return
   try {
-    await bot.sendPhoto(ADMIN_CHAT_ID, imageUrl, { caption })
+    await bot.sendPhoto(ADMIN_CHAT_ID, imageUrl, { caption, ...options })
   } catch (error) {
     console.error('Telegram photo send error:', error)
   }
@@ -62,17 +62,15 @@ export default async function handler(req, res) {
 
   if (method === 'OPTIONS') return res.status(200).end();
 
-  // Debug: log all requests
   console.log(`[${new Date().toISOString()}] ${method} ${path}`)
 
-  if (path === '/api/health') {
+  if (path === '/health') {
     return res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString()
     });
   }
 
-  // Middleware to verify JWT token
   const getUserId = (req) => {
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -88,13 +86,12 @@ export default async function handler(req, res) {
   }
 
   // Handle KYC endpoint with multipart/form-data
-  if (path === '/api/auth/kyc' && method === 'POST') {
+  if (path === '/auth/kyc' && method === 'POST') {
     const decoded = getUserId(req)
     if (!decoded) {
       return res.status(401).json({ success: false, message: 'Authorization required' })
     }
 
-    // Get raw body for multipart parsing
     const chunks = []
     await new Promise((resolve, reject) => {
       req.on('data', (chunk) => {
@@ -105,7 +102,6 @@ export default async function handler(req, res) {
     })
     const rawBody = Buffer.concat(chunks)
 
-    // Parse with Busboy
     const fields = {}
     const files = {}
     await new Promise((resolve, reject) => {
@@ -137,8 +133,8 @@ export default async function handler(req, res) {
     try {
       if (supabase) {
         const timestamp = Date.now()
-        const frontKey = `front-${timestamp}-${decoded.id}.${idDocumentFront.filename?.split('.').pop() || 'jpg'}`
-        const selfieKey = `selfie-${timestamp}-${decoded.id}.${selfie.filename?.split('.').pop() || 'jpg'}`
+        const frontKey = `kyc/front-${timestamp}-${decoded.id}.${idDocumentFront.filename?.split('.').pop() || 'jpg'}`
+        const selfieKey = `kyc/selfie-${timestamp}-${decoded.id}.${selfie.filename?.split('.').pop() || 'jpg'}`
         
         const { error: frontErr } = await supabase.storage
           .from('kyc')
@@ -151,7 +147,7 @@ export default async function handler(req, res) {
         if (!selfieErr) selfieUrl = `${supabaseUrl}/storage/v1/object/public/kyc/${selfieKey}`
 
         if (idDocumentBack) {
-          const backKey = `back-${timestamp}-${decoded.id}.${idDocumentBack.filename?.split('.').pop() || 'jpg'}`
+          const backKey = `kyc/back-${timestamp}-${decoded.id}.${idDocumentBack.filename?.split('.').pop() || 'jpg'}`
           const { error: backErr } = await supabase.storage
             .from('kyc')
             .upload(backKey, idDocumentBack.data, { contentType: idDocumentBack.mimeType })
@@ -194,7 +190,7 @@ export default async function handler(req, res) {
           { text: '❌ Reject KYC', callback_data: `reject_kyc_${decoded.id}` }
         ]
         const markup = { inline_keyboard: buttons.map(b => [{ text: b.text, callback_data: b.callback_data }]) }
-        await sendTelegramMessage(bot, `📋 KYC Submission\n\nUser: ${decoded.email}\nAmount: $${idDocumentFront?.filename || 'N/A'}`, markup)
+        await sendTelegramMessage(bot, `📋 KYC Submission\n\nUser: ${decoded.email}\nName: ${fullNameLegal || 'N/A'}`, markup)
         
         if (idFrontUrl) await sendTelegramPhoto(bot, idFrontUrl, `🪪 ID Front - User: ${decoded.email}`)
         if (selfieUrl) await sendTelegramPhoto(bot, selfieUrl, `🤳 Selfie - User: ${decoded.email}`)
@@ -208,7 +204,7 @@ export default async function handler(req, res) {
   }
 
   // Handle avatar upload with multipart/form-data
-  if (path === '/api/auth/avatar' && method === 'POST') {
+  if (path === '/auth/avatar' && method === 'POST') {
     const decoded = getUserId(req)
     if (!decoded) {
       return res.status(401).json({ success: false, message: 'Authorization required' })
@@ -247,11 +243,12 @@ export default async function handler(req, res) {
     let avatarUrl = null
     try {
       if (supabase) {
-        const avatarKey = `avatar-${Date.now()}-${decoded.id}.${avatar.filename?.split('.').pop() || 'jpg'}`
+        // Try avatars bucket first, fallback to kyc
+        const avatarKey = `kyc/avatar-${Date.now()}-${decoded.id}.${avatar.filename?.split('.').pop() || 'jpg'}`
         const { error } = await supabase.storage
-          .from('avatars')
+          .from('kyc')
           .upload(avatarKey, avatar.data, { contentType: avatar.mimeType })
-        if (!error) avatarUrl = `${supabaseUrl}/storage/v1/object/public/avatars/${avatarKey}`
+        if (!error) avatarUrl = `${supabaseUrl}/storage/v1/object/public/kyc/${avatarKey}`
       }
     } catch (e) {
       console.error('Avatar upload error:', e)
@@ -264,19 +261,19 @@ export default async function handler(req, res) {
         .eq('id', decoded.id)
         .select('id, email, first_name, last_name, phone, avatar, is_verified, role, kyc_status')
         .single()
-      return res.json({ success: true, message: 'Avatar updated', data: updatedUser })
+      return res.json({ success: true, message: 'Avatar updated', avatar: updatedUser?.avatar || avatarUrl })
     }
     return res.status(500).json({ success: false, message: 'Failed to upload avatar' })
   }
 
   // Handle payment proof upload with multipart/form-data
-  if (path.match(/^\/api\/deposits\/[^/]+\/upload-receipt$/) && method === 'POST') {
+  if (path.match(/^\/deposits\/[^/]+\/upload-receipt$/) && method === 'POST') {
     const decoded = getUserId(req)
     if (!decoded) {
       return res.status(401).json({ success: false, message: 'Authorization required' })
     }
 
-    const depositId = path.split('/')[3]
+    const depositId = path.split('/')[2]
     
     const chunks = []
     await new Promise((resolve, reject) => {
@@ -311,11 +308,11 @@ export default async function handler(req, res) {
     let receiptUrl = null
     try {
       if (supabase) {
-        const receiptKey = `receipt-${Date.now()}-${decoded.id}.${receipt.filename?.split('.').pop() || 'jpg'}`
+        const receiptKey = `kyc/receipt-${Date.now()}-${decoded.id}.${receipt.filename?.split('.').pop() || 'jpg'}`
         const { error } = await supabase.storage
-          .from('receipts')
+          .from('kyc')
           .upload(receiptKey, receipt.data, { contentType: receipt.mimeType })
-        if (!error) receiptUrl = `${supabaseUrl}/storage/v1/object/public/receipts/${receiptKey}`
+        if (!error) receiptUrl = `${supabaseUrl}/storage/v1/object/public/kyc/${receiptKey}`
       }
     } catch (e) {
       console.error('Receipt upload error:', e)
@@ -356,14 +353,14 @@ export default async function handler(req, res) {
 
   try {
     // GET investments plans
-    if (path === '/api/investments/plans' && method === 'GET') {
+    if (path === '/investments/plans' && method === 'GET') {
       const { data, error } = await supabase.from('investment_plans').select('*').order('sort_order', { ascending: true });
       if (error) throw error;
       return res.json({ success: true, data });
     }
 
     // POST create investment
-    if (path === '/api/investments' && method === 'POST') {
+    if (path === '/investments' && method === 'POST') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
@@ -430,7 +427,7 @@ export default async function handler(req, res) {
     }
 
     // GET user investments
-    if (path === '/api/investments' && method === 'GET') {
+    if (path === '/investments' && method === 'GET') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
@@ -446,13 +443,13 @@ export default async function handler(req, res) {
     }
 
     // PUT start trade
-    if (path.match(/^\/api\/investments\/[^/]+\/start-trade$/) && method === 'PUT') {
+    if (path.match(/^\/investments\/[^/]+\/start-trade$/) && method === 'PUT') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
       }
 
-      const investmentId = path.split('/')[3]
+      const investmentId = path.split('/')[2]
       
       const { data: investment, error: invErr } = await supabase
         .from('investments')
@@ -500,7 +497,7 @@ export default async function handler(req, res) {
     }
 
     // GET deposits
-    if (path === '/api/deposits' && method === 'GET') {
+    if (path === '/deposits' && method === 'GET') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
@@ -516,7 +513,7 @@ export default async function handler(req, res) {
     }
 
     // GET user profile
-    if (path === '/api/auth/profile' && method === 'GET') {
+    if (path === '/auth/profile' && method === 'GET') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
@@ -532,7 +529,7 @@ export default async function handler(req, res) {
     }
 
     // PUT update user profile
-    if (path === '/api/auth/profile' && method === 'PUT') {
+    if (path === '/auth/profile' && method === 'PUT') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
@@ -556,13 +553,13 @@ export default async function handler(req, res) {
     }
 
     // PUT send payment details
-    if (path.match(/^\/api\/deposits\/[^/]+\/send-details$/) && method === 'PUT') {
+    if (path.match(/^\/deposits\/[^/]+\/send-details$/) && method === 'PUT') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
       }
 
-      const depositId = path.split('/')[3]
+      const depositId = path.split('/')[2]
       const { ecocashNumber, ecocashAccountName, ecocashReference } = body
 
       const { data: deposit, error } = await supabase
@@ -593,13 +590,13 @@ export default async function handler(req, res) {
     }
 
     // PUT approve deposit
-    if (path.match(/^\/api\/deposits\/[^/]+\/approve$/) && method === 'PUT') {
+    if (path.match(/^\/deposits\/[^/]+\/approve$/) && method === 'PUT') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
       }
 
-      const depositId = path.split('/')[3]
+      const depositId = path.split('/')[2]
 
       const { data: deposit, error } = await supabase
         .from('deposits')
@@ -632,13 +629,13 @@ export default async function handler(req, res) {
     }
 
     // PUT reject deposit
-    if (path.match(/^\/api\/deposits\/[^/]+\/reject$/) && method === 'PUT') {
+    if (path.match(/^\/deposits\/[^/]+\/reject$/) && method === 'PUT') {
       const decoded = getUserId(req)
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Authorization required' })
       }
 
-      const depositId = path.split('/')[3]
+      const depositId = path.split('/')[2]
 
       const { data: deposit, error } = await supabase
         .from('deposits')
@@ -661,7 +658,7 @@ export default async function handler(req, res) {
     }
 
     // Admin: GET deposits
-    if (path === '/api/admin/deposits' && method === 'GET') {
+    if (path === '/admin/deposits' && method === 'GET') {
       const { data, error } = await supabase
         .from('deposits')
         .select('*, user:users(*)')
@@ -671,7 +668,7 @@ export default async function handler(req, res) {
     }
 
     // Admin: GET investments
-    if (path === '/api/admin/investments' && method === 'GET') {
+    if (path === '/admin/investments' && method === 'GET') {
       const { data, error } = await supabase
         .from('investments')
         .select('*, user:users(*), plan:investment_plans(*)')
@@ -681,7 +678,7 @@ export default async function handler(req, res) {
     }
 
     // Admin: GET dashboard stats
-    if (path === '/api/admin/dashboard' && method === 'GET') {
+    if (path === '/admin/dashboard' && method === 'GET') {
       const [usersRes, investmentsRes, depositsRes, withdrawalsRes] = await Promise.all([
         supabase.from('users').select('id', { count: 'exact' }),
         supabase.from('investments').select('id', { count: 'exact' }),
@@ -705,8 +702,8 @@ export default async function handler(req, res) {
     }
 
     // Admin: PUT approve user
-    if (path.match(/^\/api\/admin\/users\/[^/]+\/approve$/) && method === 'PUT') {
-      const userId = path.split('/')[4]
+    if (path.match(/^\/admin\/users\/[^/]+\/approve$/) && method === 'PUT') {
+      const userId = path.split('/')[3]
       
       const { data: user, error } = await supabase
         .from('users')
@@ -731,8 +728,8 @@ export default async function handler(req, res) {
     }
 
     // Admin: PUT approve KYC
-    if (path.match(/^\/api\/admin\/users\/[^/]+\/approve-kyc$/) && method === 'PUT') {
-      const userId = path.split('/')[4]
+    if (path.match(/^\/admin\/users\/[^/]+\/approve-kyc$/) && method === 'PUT') {
+      const userId = path.split('/')[3]
       
       const { data: user, error } = await supabase
         .from('users')
@@ -757,8 +754,8 @@ export default async function handler(req, res) {
     }
 
     // Admin: PUT reject KYC
-    if (path.match(/^\/api\/admin\/users\/[^/]+\/reject-kyc$/) && method === 'PUT') {
-      const userId = path.split('/')[4]
+    if (path.match(/^\/admin\/users\/[^/]+\/reject-kyc$/) && method === 'PUT') {
+      const userId = path.split('/')[3]
       
       const { data: user, error } = await supabase
         .from('users')
@@ -783,7 +780,7 @@ export default async function handler(req, res) {
     }
 
     // Admin: GET users
-    if (path === '/api/admin/users' && method === 'GET') {
+    if (path === '/admin/users' && method === 'GET') {
       const { data, error } = await supabase
         .from('users')
         .select('id, email, first_name, last_name, phone, is_active, is_verified, kyc_status, created_at')
@@ -792,7 +789,7 @@ export default async function handler(req, res) {
       return res.json({ success: true, data })
     }
 
-    if (path === '/api/auth/register' && method === 'POST') {
+    if (path === '/auth/register' && method === 'POST') {
       const schema = z.object({ email: z.string().email(), password: z.string().min(6), firstName: z.string().min(1), lastName: z.string().min(1) });
       const parsed = schema.parse(body);
       
@@ -827,7 +824,7 @@ export default async function handler(req, res) {
       return res.status(201).json({ success: true, message: 'Registration successful!', data: { user, token } });
     }
 
-    if (path === '/api/auth/login' && method === 'POST') {
+    if (path === '/auth/login' && method === 'POST') {
       const schema = z.object({ email: z.string().email(), password: z.string().min(1) });
       const parsed = schema.parse(body);
       

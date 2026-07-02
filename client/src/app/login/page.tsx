@@ -37,7 +37,16 @@ function LoginForm() {
 
     try {
       const { data } = await api.post('auth/login', { email, password })
-      login(data.data.token, data.data.user)
+      // Map snake_case to camelCase for frontend
+      const userData = data.data.user
+      const mappedUser = {
+        ...userData,
+        firstName: userData.first_name,
+        lastName: userData.last_name,
+        kycStatus: userData.kyc_status,
+        phone: userData.phone,
+      }
+      login(data.data.token, mappedUser)
       router.push('/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed')

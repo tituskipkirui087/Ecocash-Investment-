@@ -7,20 +7,15 @@ import toast from 'react-hot-toast'
 import { Mail, Phone, Save, Camera, LogOut, Shield, User as UserIcon } from 'lucide-react'
 
 export default function ProfilePage() {
-  const { user, token, logout, updateUser } = useAuth()
+  const { user, logout, updateUser } = useAuth()
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     phone: '',
   })
   const [loading, setLoading] = useState(false)
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [showKycConfirmed, setShowKycConfirmed] = useState(false)
-
-  useEffect(() => {
-    fetchProfile()
-  }, [])
 
   useEffect(() => {
     if (user) {
@@ -33,32 +28,27 @@ export default function ProfilePage() {
         setAvatarPreview(user.avatar)
       }
     }
+    // Also fetch profile on mount to get latest data
+    fetchProfile()
   }, [user])
 
   const fetchProfile = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/profile`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      })
-      if (res.ok) {
-        const { data } = await res.json()
-        updateUser({
-          ...user,
-          ...data,
-          firstName: data.first_name,
-          lastName: data.last_name,
-          kycStatus: data.kyc_status,
-        } as any)
-      }
+      const { data } = await api.get('auth/profile')
+      updateUser({
+        ...user,
+        ...data,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        kycStatus: data.kyc_status,
+        phone: data.phone,
+      } as any)
     } catch (err) {
       console.error('Failed to fetch profile:', err)
     }
   }
 
   useEffect(() => {
-    // Show KYC confirmation when user becomes verified
     if (user?.isVerified && !showKycConfirmed) {
       setShowKycConfirmed(true)
       toast.success('🎉 KYC Verified! Your account is now fully activated.', {
@@ -74,7 +64,6 @@ export default function ProfilePage() {
       const reader = new FileReader()
       reader.onload = (event) => {
         setAvatarPreview(event.target?.result as string)
-        setAvatarFile(file)
         uploadAvatar(file)
       }
       reader.readAsDataURL(file)
@@ -85,21 +74,17 @@ export default function ProfilePage() {
     try {
       const form = new FormData()
       form.append('avatar', file)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/avatar`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: form,
-      })
-      if (!res.ok) throw new Error('Upload failed')
-      const { data } = await res.json()
-      if (data.data?.avatar) {
-        updateUser({ ...user, avatar: data.data.avatar } as any)
+      
+      const res = await api.post('/auth/avatar', form)
+      
+      if (res.data?.avatar) {
+        updateUser({ ...user, avatar: res.data.avatar } as any)
+        setAvatarPreview(res.data.avatar)
       }
       toast.success('Profile image updated')
     } catch (err: any) {
-      toast.error('Failed to upload image')
+      console.error('Avatar upload error:', err)
+      toast.error(err.response?.data?.message || err.message || 'Failed to upload image')
     }
   }
 
@@ -107,20 +92,11 @@ export default function ProfilePage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/profile`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      })
-      if (!res.ok) throw new Error('Update failed')
-      const { data } = await res.json()
+      const { data } = await api.put('/auth/profile', formData)
       updateUser({ ...user, ...data, firstName: data.first_name, lastName: data.last_name } as any)
       toast.success('Profile updated successfully')
     } catch (err: any) {
-      toast.error(err.message || 'Failed to update profile')
+      toast.error(err.response?.data?.message || err.message || 'Failed to update profile')
     } finally {
       setLoading(false)
     }
@@ -155,9 +131,9 @@ export default function ProfilePage() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {user?.firstName} {user?.lastName}
+              {user?.firstName || ''} {user?.lastName || ''}
             </h2>
-            <p className="text-sm text-gray-600">{user?.email}</p>
+            <p className="text-sm text-gray-600">{user?.email || '-'}</p>
             <div className="mt-1 flex items-center gap-2">
               <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${user?.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-brand-blue/10 text-brand-blue'}`}>
                 {user?.role}
